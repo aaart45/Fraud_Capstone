@@ -1,0 +1,95 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"><title>Fraud Check</title>
+</head>
+<body>
+  <h2>Fraud Detector (demo)</h2>
+<button type="button" id="fill-normal">Fill normal-ish</button>
+<button type="button" id="fill-outlier">Fill outlier-ish</button>
+<br><br>
+
+  <form id="f">
+    <div>
+      {% for f in features %}
+        <label>{{ f }} <input type="number" step="any" name="{{ f }}" value="0"></label><br/>
+      {% endfor %}
+    </div>
+    <button type="submit">Predict</button>
+  </form>
+  <div id="result"></div>
+
+  <style>
+    .badge { display:inline-block; padding:6px 10px; border-radius:6px; font-weight:600; }
+    .ok { background:#e7f7ee; color:#0a7a3b; border:1px solid #bfe8d0; }
+    .fraud { background:#fde8e8; color:#9b1c1c; border:1px solid #f5c2c2; }
+    pre { white-space: pre-wrap; }
+  </style>
+
+  <script>
+    function randn() {
+      let u=0, v=0;
+      while(u===0) u=Math.random();
+      while(v===0) v=Math.random();
+      return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+    }
+  
+    function fillValues(mode) {
+      const inputs = document.querySelectorAll('input[name]');
+      inputs.forEach(inp => {
+        const name = inp.name;
+        let val = 0;
+  
+        if (name === 'Time') {
+          val = mode === 'out' ? Math.floor(50000 + Math.random()*50000)
+                               : Math.floor(1000 + Math.random()*20000);
+        } else if (name === 'Amount') {
+          val = mode === 'out' ? +(200 + Math.random()*800).toFixed(2)
+                               : +(5 + Math.random()*75).toFixed(2);
+        } else {
+          // V1..V28
+          val = mode === 'out'
+            ? +(randn()*3.5).toFixed(4)      // wider spread
+            : +(randn()*0.5).toFixed(4);     // small, near zero
+        }
+        inp.value = val;
+      });
+    }
+  
+    document.getElementById('fill-normal').addEventListener('click', () => fillValues('norm'));
+    document.getElementById('fill-outlier').addEventListener('click', () => fillValues('out'));
+    const form = document.getElementById('f');
+    const result = document.getElementById('result');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {};
+      for (const [k, v] of new FormData(form).entries()) data[k] = Number(v);
+
+      result.innerHTML = 'Predicting...';
+      try {
+        const r = await fetch('/api/predict', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(data)
+        });
+        const j = await r.json();
+
+        if (j.error) { result.textContent = 'Error: ' + j.error; return; }
+
+        const badgeClass = j.is_fraud ? 'fraud' : 'ok';
+        const label = j.is_fraud ? 'FRAUD' : 'OK';
+        const conf = (j.confidence ?? 0) * 100;
+
+        result.innerHTML = `
+          <div class="badge ${badgeClass}">${label} — ${(conf).toFixed(1)}% confidence</div>
+          <pre>${JSON.stringify(j, null, 2)}</pre>
+        `;
+      } catch (err) {
+        result.textContent = 'Error: ' + err.message;
+      }
+    });
+  </script>
+
+</body>
+</html>
