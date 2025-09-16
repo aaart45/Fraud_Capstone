@@ -6,6 +6,10 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth import login
+from django.shortcuts import redirect
+
 
 
 from .models import Submission  # <-- history uses this
@@ -93,4 +97,14 @@ def form_view(request):
 def history_view(request):
     rows = Submission.objects.order_by("-created_at")[:100]
     return render(request, "predictor/history.html", {"rows": rows})
+def signup_view(request):
+    if request.method == "POST":
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)      # auto-login after signup
+            return redirect("home")
+    else:
+        form = UserCreationForm()
+    return render(request, "registration/signup.html", {"form": form})
 
