@@ -5,6 +5,8 @@ import joblib, numpy as np
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.decorators import login_required
+
 
 from .models import Submission  # <-- history uses this
 
@@ -83,3 +85,12 @@ def form_view(request):
 def history_view(request):        # <-- THIS is what urls.py imports
     rows = Submission.objects.order_by("-created_at")[:100]
     return render(request, "predictor/history.html", {"rows": rows})
+@login_required
+def form_view(request):
+    return render(request, "predictor/form.html", {"features": FEATURES})
+
+@login_required
+def history_view(request):
+    rows = Submission.objects.order_by("-created_at")[:100]
+    return render(request, "predictor/history.html", {"rows": rows})
+

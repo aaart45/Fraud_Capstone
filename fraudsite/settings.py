@@ -137,3 +137,13 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+BASE_DIR = Path(__file__).resolve().parents[1]
+
+# existing TEMPLATES = [...] – add the project-level directory:
+TEMPLATES[0]["DIRS"] = [BASE_DIR / "templates"]
+
+# auth redirects
+LOGIN_URL = "/login/"
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/login/"
