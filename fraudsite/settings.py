@@ -11,6 +11,20 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+# at top
+import os
+DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() == "true"
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "*").split(",")
+SECRET_KEY = os.environ.get("SECRET_KEY", "dev-not-secure-change-me")
+
+# static for WhiteNoise
+STATIC_URL = "static/"
+from pathlib import Path
+BASE_DIR = Path(__file__).resolve().parents[1]
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# in MIDDLEWARE (add after SecurityMiddleware)
+"whitenoise.middleware.WhiteNoiseMiddleware",
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
