@@ -46,7 +46,24 @@ SECRET_KEY = 'django-insecure-r^6y8og(x9l9!4q&wubndmow!2lik^3y$8&ynfurr^rk0l6o#l
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()]
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
+# If your env provides only hostnames, you can generate:
+# CSRF_TRUSTED_ORIGINS += [f"https://{h}" for h in ALLOWED_HOSTS if "." in h]
+
+# Secure cookies (works behind Render’s HTTPS proxy)
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+
+# Honor X-Forwarded-Proto from Render (serves https correctly)
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Optional HSTS (enable when you’re confident everything is over HTTPS)
+SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "0"))  # try 0 now, 31536000 later
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
 
 
 # Application definition
