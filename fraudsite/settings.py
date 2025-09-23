@@ -46,7 +46,20 @@ SECRET_KEY = 'django-insecure-r^6y8og(x9l9!4q&wubndmow!2lik^3y$8&ynfurr^rk0l6o#l
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()]
+ALLOWED_HOSTS = [
+    h.strip() for h in os.environ.get(
+        "ALLOWED_HOSTS",
+        "localhost,127.0.0.1"
+    ).split(",") if h.strip()
+]
+
+# If env var missing or empty for some reason, provide a safe default for Render
+if not ALLOWED_HOSTS:
+    ALLOWED_HOSTS = [
+        "fraud-capstone-web.onrender.com",  # your exact host
+        ".onrender.com",                    # wildcard safety
+        "localhost", "127.0.0.1"
+    ]
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
 # If your env provides only hostnames, you can generate:
 # CSRF_TRUSTED_ORIGINS += [f"https://{h}" for h in ALLOWED_HOSTS if "." in h]
@@ -86,6 +99,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'predictor.middleware.SimpleRateLimit',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -171,3 +185,10 @@ TEMPLATES[0]["DIRS"] = [BASE_DIR / "templates"]
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/login/"
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "fraudcap-cache",
+    }
+}
