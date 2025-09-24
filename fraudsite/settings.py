@@ -18,6 +18,20 @@ import os
 
 import dj_database_url
 
+
+
+SENTRY_DSN = os.getenv("SENTRY_DSN", "")
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration()],
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES", "0.0")),
+        send_default_pii=False,
+    )
+
+
 BASE_DIR = Path(__file__).resolve().parents[1]
 
 DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() == "true"
@@ -72,6 +86,9 @@ CSRF_COOKIE_SAMESITE = "Lax"
 
 # Honor X-Forwarded-Proto from Render (serves https correctly)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+REFERRER_POLICY = "strict-origin-when-cross-origin"
 
 # Optional HSTS (enable when you’re confident everything is over HTTPS)
 SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "0"))  # try 0 now, 31536000 later
@@ -100,6 +117,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'predictor.middleware.SimpleRateLimit',
+    'predictor.middleware.ApiExceptionMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
