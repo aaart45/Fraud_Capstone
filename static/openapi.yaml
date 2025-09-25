@@ -4,15 +4,19 @@ info:
   version: 1.0.0
 paths:
   /api/v1/predict/:
-    post:
-      summary: Predict fraud
+     post:
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               type: object
               additionalProperties: { type: number }
+            example:
+              Time: 15322
+              V1: -0.4347
+              V2: -0.5361
+              V3: -0.2355
+              Amount: 120.5
       responses:
         '200':
           description: OK
@@ -23,3 +27,12 @@ paths:
                 properties:
                   is_fraud: { type: boolean }
                   confidence: { type: number }
+                  anomaly_score: { type: number }
+                  model_name: { type: string }
+                  version: { type: string }
+              example:
+                is_fraud: true
+                confidence: 0.497
+                anomaly_score: -0.011
+                model_name: IsolationForest
+                version: best_v1
