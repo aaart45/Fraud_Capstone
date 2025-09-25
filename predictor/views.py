@@ -9,6 +9,24 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 from django.shortcuts import redirect
+import json  
+
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
+from django.utils.timezone import now
+from django.db import connection
+
+from django.shortcuts import render
+
+def docs_view(request):
+    return render(request, "docs.html")
+
+# ... other imports
+
+
+
 
 
 
@@ -60,28 +78,51 @@ def _predict_one(payload: dict):
         "version": BUNDLE.get("version", "best_v1"),
     }, 200
 
-@csrf_exempt
+@csrf_protect
 def predict_view(request):
     if request.method != "POST":
         return JsonResponse({"detail": "POST JSON to this endpoint."}, status=405)
     try:
         data = json.loads(request.body.decode("utf-8"))
+        clean, errs = validate_payload(data)
+        if errs:
+            return JsonResponse({"errors": errs}, status=400)
+
+# use the CLEAN data for prediction
+        result, code = _predict_one(clean)
+
     except Exception:
         return JsonResponse({"error": "Invalid JSON body."}, status=400)
 
     result, code = _predict_one(data)
 
+ 
+
     if code == 200:
-        Submission.objects.create(
-            input_json=data,
-            is_fraud=result["is_fraud"],
-            risk=result["risk"],
-            confidence=result["confidence"],
-            anomaly_score=result["anomaly_score"],
-            model_name=result["model_name"],
-            version=result["version"],
-        )
-    return JsonResponse(result, status=code)
+    # pull fields from the model response
+            is_fraud            = bool(result.get("is_fraud", False))
+            anomaly_score       = float(result.get("anomaly_score", 0.0))
+            pseudo_probability  = float(result.get("pseudo_probability", 0.0))
+            model_name          = str(result.get("model_name", "IsolationForest"))
+            version             = str(result.get("version", "best_v1"))
+
+    # store the raw input you received
+    input_json_string   = json.dumps(
+        data, separators=(",", ":"), sort_keys=True, ensure_ascii=False
+    )
+
+    Submission.objects.create(
+        user=request.user if request.user.is_authenticated else None,
+        is_fraud=is_fraud,
+        anomaly_score=anomaly_score,
+        pseudo_probability=pseudo_probability,
+        model_name=model_name,
+        version=version,
+        input=input_json_string,  # use your actual field name here
+    )
+    input_json_string = json.dumps(clean, separators=(",", ":"), sort_keys=True, ensure_ascii=False)
+    
+
 
 def form_view(request):
     return render(request, "predictor/form.html", {"features": FEATURES})
@@ -108,3 +149,30 @@ def signup_view(request):
         form = UserCreationForm()
     return render(request, "registration/signup.html", {"form": form})
 
+@ensure_csrf_cookie          # <-- add this
+@login_required
+def form_view(request):
+    return render(request, "predictor/form.html", {"features": FEATURES})
+from django.views.decorators.csrf import ensure_csrf_cookie
+# ...
+
+@ensure_csrf_cookie         # add this line
+# @login_required           # keep if you had it
+def form_view(request):
+    return render(request, "predictor/form.html", {"features": FEATURES})
+
+def health_view(request):
+    db_ok = False
+    try:
+        with connection.cursor() as cur:
+            cur.execute("SELECT 1;")
+            db_ok = True
+    except Exception:
+        db_ok = False
+
+    return JsonResponse({
+        "status": "ok" if db_ok else "degraded",
+        "db_ok": db_ok,
+        "time": now().isoformat(),
+        "version": "v1"
+    }, status=200 if db_ok else 503)
