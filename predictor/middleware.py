@@ -4,6 +4,17 @@ import hashlib
 from django.http import JsonResponse
 from django.core.cache import cache
 from django.utils.deprecation import MiddlewareMixin
+import logging
+
+logger = logging.getLogger(__name__)
+
+class ApiExceptionMiddleware(MiddlewareMixin):
+    """Return JSON for unhandled exceptions on /api/* and log them."""
+    def process_exception(self, request, exc):
+        if request.path.startswith("/api/"):
+            logger.exception("API error", extra={"path": request.path})
+            return JsonResponse({"error": "server_error"}, status=500)
+        return None
 
 class SimpleRateLimit(MiddlewareMixin):
     """
@@ -49,4 +60,15 @@ class SimpleRateLimit(MiddlewareMixin):
 
         # increment
         cache.set(key, (start, count + 1), timeout=max(1, window - elapsed))
+        return None
+    
+class ApiExceptionMiddleware(MiddlewareMixin):
+    """
+        Return JSON for unhandled exceptions on /api/* and log them.
+        Exact class name must match settings: ApiExceptionMiddleware
+    """
+    def process_exception(self, request, exc):
+        if request.path.startswith("/api/"):
+            logger.exception("API error", extra={"path": request.path})
+            return JsonResponse({"error": "server_error"}, status=500)
         return None

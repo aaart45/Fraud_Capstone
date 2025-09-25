@@ -118,10 +118,11 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'predictor.middleware.SimpleRateLimit',
     'predictor.middleware.ApiExceptionMiddleware',
+    'predictor.middleware.ApiExceptionMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'predictor.middleware.ApiExceptionMiddleware',
-'
+    
+
 ]
 
 ROOT_URLCONF = 'fraudsite.urls'
