@@ -1,0 +1,25 @@
+openapi: 3.0.3
+info:
+  title: Fraud API
+  version: 1.0.0
+paths:
+  /api/v1/predict/:
+    post:
+      summary: Predict fraud
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: { type: number }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  is_fraud: { type: boolean }
+                  confidence: { type: number }
