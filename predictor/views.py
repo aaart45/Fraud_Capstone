@@ -38,6 +38,19 @@ BUNDLE = joblib.load(MODEL_PATH)
 PIPE = BUNDLE["pipeline"]
 FEATURES = BUNDLE["features"]
 
+def validate_payload(data):
+    errors = []
+    clean = {}
+    for field in FEATURES:
+        if field not in data:
+            errors.append(f"Missing field: {field}")
+        else:
+            try:
+                clean[field] = float(data[field])
+            except (ValueError, TypeError):
+                errors.append(f"Field '{field}' must be numeric")
+    return clean, errors
+
 def _predict_one(payload: dict):
     missing = [f for f in FEATURES if f not in payload]
     if missing:
@@ -82,54 +95,41 @@ def _predict_one(payload: dict):
 def predict_view(request):
     if request.method != "POST":
         return JsonResponse({"detail": "POST JSON to this endpoint."}, status=405)
+    
     try:
         data = json.loads(request.body.decode("utf-8"))
         clean, errs = validate_payload(data)
         if errs:
             return JsonResponse({"errors": errs}, status=400)
 
-# use the CLEAN data for prediction
         result, code = _predict_one(clean)
+        
+        if code == 200:
+            is_fraud = bool(result.get("is_fraud", False))
+            anomaly_score = float(result.get("anomaly_score", 0.0))
+            pseudo_probability = float(result.get("pseudo_probability", 0.0))
+            model_name = str(result.get("model_name", "IsolationForest"))
+            version = str(result.get("version", "best_v1"))
 
+            input_json_string = json.dumps(clean, separators=(",", ":"), sort_keys=True, ensure_ascii=False)
+
+            Submission.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                is_fraud=is_fraud,
+                anomaly_score=anomaly_score,
+                pseudo_probability=pseudo_probability,
+                model_name=model_name,
+                version=version,
+                input=input_json_string,
+            )
+        
+        return JsonResponse(result, status=code)
+        
     except Exception:
         return JsonResponse({"error": "Invalid JSON body."}, status=400)
-
-    result, code = _predict_one(data)
-
- 
-
-    if code == 200:
-    # pull fields from the model response
-            is_fraud            = bool(result.get("is_fraud", False))
-            anomaly_score       = float(result.get("anomaly_score", 0.0))
-            pseudo_probability  = float(result.get("pseudo_probability", 0.0))
-            model_name          = str(result.get("model_name", "IsolationForest"))
-            version             = str(result.get("version", "best_v1"))
-
-    # store the raw input you received
-    input_json_string   = json.dumps(
-        data, separators=(",", ":"), sort_keys=True, ensure_ascii=False
-    )
-
-    Submission.objects.create(
-        user=request.user if request.user.is_authenticated else None,
-        is_fraud=is_fraud,
-        anomaly_score=anomaly_score,
-        pseudo_probability=pseudo_probability,
-        model_name=model_name,
-        version=version,
-        input=input_json_string,  # use your actual field name here
-    )
-    input_json_string = json.dumps(clean, separators=(",", ":"), sort_keys=True, ensure_ascii=False)
     
 
-
-def form_view(request):
-    return render(request, "predictor/form.html", {"features": FEATURES})
-
-def history_view(request):        # <-- THIS is what urls.py imports
-    rows = Submission.objects.order_by("-created_at")[:100]
-    return render(request, "predictor/history.html", {"rows": rows})
+@ensure_csrf_cookie
 @login_required
 def form_view(request):
     return render(request, "predictor/form.html", {"features": FEATURES})
@@ -138,28 +138,17 @@ def form_view(request):
 def history_view(request):
     rows = Submission.objects.order_by("-created_at")[:100]
     return render(request, "predictor/history.html", {"rows": rows})
+
 def signup_view(request):
     if request.method == "POST":
         form = UserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
-            login(request, user)      # auto-login after signup
+            login(request, user)
             return redirect("home")
     else:
         form = UserCreationForm()
     return render(request, "registration/signup.html", {"form": form})
-
-@ensure_csrf_cookie          # <-- add this
-@login_required
-def form_view(request):
-    return render(request, "predictor/form.html", {"features": FEATURES})
-from django.views.decorators.csrf import ensure_csrf_cookie
-# ...
-
-@ensure_csrf_cookie         # add this line
-# @login_required           # keep if you had it
-def form_view(request):
-    return render(request, "predictor/form.html", {"features": FEATURES})
 
 def health_view(request):
     db_ok = False

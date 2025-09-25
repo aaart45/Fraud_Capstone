@@ -1,9 +1,11 @@
 from django.contrib import admin
 from django.urls import path
 from django.contrib.auth import views as auth_views
-from predictor.views import predict_view, form_view, history_view, signup_view
+from predictor.views import predict_view, form_view, history_view, signup_view, health_view, docs_view
+from predictor import views as pviews
 
 urlpatterns = [
+     path('docs/', docs_view, name='api-docs'),
      path('admin/', admin.site.urls),
 
     # UI
@@ -14,6 +16,8 @@ urlpatterns = [
     path('api/v1/predict/', predict_view, name='api-predict'),
 
     # (optional) keep old path working for now
+    path('api/v1/health/', health_view, name='api-health'),
+    path('docs/', pviews.docs_view, name='api-docs'),
     path('api/predict/', predict_view),
     path("admin/", admin.site.urls),
     path("login/",  auth_views.LoginView.as_view(),  name="login"),
