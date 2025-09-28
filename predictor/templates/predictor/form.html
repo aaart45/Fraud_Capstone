@@ -1,95 +1,203 @@
-﻿<!DOCTYPE html>
-<html>
+﻿<!doctype html>
+<html lang="en">
 <head>
-  <meta charset="utf-8"><title>Fraud Check</title>
-</head>
-<body>
-  <h2>Fraud Detector (demo)</h2>
-<button type="button" id="fill-normal">Fill normal-ish</button>
-<button type="button" id="fill-outlier">Fill outlier-ish</button>
-<br><br>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fraud Detector</title>
 
-  <form id="f">
-    <div>
-      {% for f in features %}
-        <label>{{ f }} <input type="number" step="any" name="{{ f }}" value="0"></label><br/>
-      {% endfor %}
-    </div>
-    <button type="submit">Predict</button>
-  </form>
-  <div id="result"></div>
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
   <style>
-    .badge { display:inline-block; padding:6px 10px; border-radius:6px; font-weight:600; }
-    .ok { background:#e7f7ee; color:#0a7a3b; border:1px solid #bfe8d0; }
-    .fraud { background:#fde8e8; color:#9b1c1c; border:1px solid #f5c2c2; }
-    pre { white-space: pre-wrap; }
+    body { background: #f8fafc; }
+    .navbar-brand { font-weight: 700; letter-spacing: 0.2px; }
+    .feature-label { font-size: .9rem; color:#334155; }
+    .result-badge { font-weight: 700; font-size: .95rem; }
+    .muted-kv { font-size: .9rem; color:#475569; }
+    .card-shadow { box-shadow: 0 8px 24px rgba(15, 23, 42, .06); }
+    .grid-help { font-size:.9rem; color:#64748b; }
   </style>
+</head>
+<body>
 
+  <!-- Top bar -->
+  <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
+    <div class="container">
+      <a class="navbar-brand" href="/">Fraud&nbsp;Detector</a>
+      <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary btn-sm" href="/history/">History</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/docs/">Docs</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container py-4">
+    <div class="row g-4">
+      <!-- Left: form -->
+      <div class="col-lg-7">
+        <div class="card card-shadow">
+          <div class="card-body">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <h1 class="h4 mb-0">Transaction features</h1>
+              <div class="d-flex gap-2">
+                <button type="button" id="fill-normal" class="btn btn-outline-primary btn-sm">Fill normal-ish</button>
+                <button type="button" id="fill-outlier" class="btn btn-outline-danger btn-sm">Fill outlier-ish</button>
+              </div>
+            </div>
+            <p class="grid-help mb-4">Provide values for <strong>Time, V1..V28, Amount</strong>. Then click <em>Predict</em>.</p>
+
+            <form id="f" class="row g-3">
+              {% for f in features %}
+                <div class="col-6 col-md-4">
+                  <label class="feature-label" for="f-{{ f }}">{{ f }}</label>
+                  <input id="f-{{ f }}" class="form-control" type="number" step="any" name="{{ f }}" data-feature="{{ f }}" value="0" />
+                </div>
+              {% endfor %}
+              <div class="col-12 d-flex gap-2 mt-1">
+                <button type="submit" class="btn btn-primary">Predict</button>
+                <button type="button" id="reset" class="btn btn-light">Reset</button>
+              </div>
+            </form>
+
+            <!-- errors -->
+            <div id="errors" class="alert alert-danger mt-3 d-none" role="alert"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: result -->
+      <div class="col-lg-5">
+        <div class="card card-shadow">
+          <div class="card-body">
+            <h2 class="h5 mb-3">Result</h2>
+            <div id="result" class="text-muted">No prediction yet.</div>
+          </div>
+        </div>
+
+        <div class="card card-shadow mt-3">
+          <div class="card-body">
+            <h2 class="h6 mb-2">Tips</h2>
+            <ul class="mb-0 small text-secondary">
+              <li>“Fill normal-ish” generates near-zero V1..V28 and modest Time/Amount.</li>
+              <li>“Fill outlier-ish” spreads V1..V28 and raises Time/Amount.</li>
+              <li>See all submissions on <a href="/history/">/history/</a>.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div> <!-- row -->
+  </div> <!-- container -->
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    function randn() {
+    // ------------ helpers ------------
+    function randn() { // Gaussian
       let u=0, v=0;
       while(u===0) u=Math.random();
       while(v===0) v=Math.random();
-      return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+      return Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v);
     }
-  
+    function getCookie(name) {
+      const m = document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)');
+      return m ? m.pop() : '';
+    }
+    const inputs = () => Array.from(document.querySelectorAll('[data-feature]'));
+    const toNumber = v => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    // ------------ fill buttons ------------
     function fillValues(mode) {
-      const inputs = document.querySelectorAll('input[name]');
-      inputs.forEach(inp => {
-        const name = inp.name;
+      inputs().forEach(inp => {
+        const name = inp.dataset.feature;
         let val = 0;
-  
         if (name === 'Time') {
-          val = mode === 'out' ? Math.floor(50000 + Math.random()*50000)
-                               : Math.floor(1000 + Math.random()*20000);
+          val = mode==='out' ? Math.floor(50000 + Math.random()*50000)
+                             : Math.floor(1000 + Math.random()*20000);
         } else if (name === 'Amount') {
-          val = mode === 'out' ? +(200 + Math.random()*800).toFixed(2)
-                               : +(5 + Math.random()*75).toFixed(2);
+          val = mode==='out' ? +(200 + Math.random()*800).toFixed(2)
+                             : +(5 + Math.random()*75).toFixed(2);
         } else {
-          // V1..V28
-          val = mode === 'out'
-            ? +(randn()*3.5).toFixed(4)      // wider spread
-            : +(randn()*0.5).toFixed(4);     // small, near zero
+          val = mode==='out' ? +(randn()*3.5).toFixed(4)
+                             : +(randn()*0.5).toFixed(4);
         }
         inp.value = val;
       });
     }
-  
     document.getElementById('fill-normal').addEventListener('click', () => fillValues('norm'));
     document.getElementById('fill-outlier').addEventListener('click', () => fillValues('out'));
-    const form = document.getElementById('f');
+    document.getElementById('reset').addEventListener('click', () => {
+      inputs().forEach(i => i.value = 0);
+      document.getElementById('result').textContent = 'No prediction yet.';
+      document.getElementById('errors').classList.add('d-none');
+    });
+
+    // ------------ submit ------------
+    const form   = document.getElementById('f');
     const result = document.getElementById('result');
+    const errors = document.getElementById('errors');
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const data = {};
-      for (const [k, v] of new FormData(form).entries()) data[k] = Number(v);
 
-      result.innerHTML = 'Predicting...';
+      // build payload
+      const payload = {};
+      for (const inp of inputs()) {
+        payload[inp.dataset.feature] = toNumber(inp.value);
+      }
+
+      errors.classList.add('d-none');
+      result.innerHTML = '<div class="text-secondary">Predicting…</div>';
+
       try {
         const r = await fetch('/api/predict', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(data)
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken') // harmless if API is csrf_exempt
+          },
+          body: JSON.stringify(payload)
         });
-        const j = await r.json();
 
-        if (j.error) { result.textContent = 'Error: ' + j.error; return; }
+        const j = await r.json().catch(() => ({}));
 
-        const badgeClass = j.is_fraud ? 'fraud' : 'ok';
-        const label = j.is_fraud ? 'FRAUD' : 'OK';
-        const conf = (j.confidence ?? 0) * 100;
+        if (!r.ok) {
+          const msg = Array.isArray(j.errors) ? j.errors.join('<br>')
+                    : (j.error || 'Invalid input.');
+          errors.innerHTML = msg;
+          errors.classList.remove('d-none');
+          result.innerHTML = '<span class="text-danger">Prediction failed.</span>';
+          return;
+        }
+
+        const isFraud = !!j.is_fraud;
+        const conf    = (j.confidence ?? j.pseudo_probability ?? 0) * 100;
+        const badge   = isFraud ? 'danger' : 'success';
+        const label   = isFraud ? 'FRAUD' : 'OK';
 
         result.innerHTML = `
-          <div class="badge ${badgeClass}">${label} — ${(conf).toFixed(1)}% confidence</div>
-          <pre>${JSON.stringify(j, null, 2)}</pre>
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="badge text-bg-${badge} result-badge px-3 py-2">${label}</span>
+            <span class="muted-kv">Confidence: ${conf.toFixed(1)}%</span>
+          </div>
+          <div class="row row-cols-2 g-2">
+            <div class="col"><span class="muted-kv">Model:</span> ${j.model_name ?? '—'}</div>
+            <div class="col"><span class="muted-kv">Version:</span> ${j.version ?? '—'}</div>
+            <div class="col"><span class="muted-kv">Anomaly score:</span> ${j.anomaly_score ?? '—'}</div>
+          </div>
+          <hr class="my-3">
+          <details>
+            <summary class="text-secondary small">Raw response</summary>
+            <pre class="mt-2 small">${JSON.stringify(j, null, 2)}</pre>
+          </details>
         `;
       } catch (err) {
-        result.textContent = 'Error: ' + err.message;
+        errors.textContent = 'Network error: ' + err.message;
+        errors.classList.remove('d-none');
+        result.innerHTML = '<span class="text-danger">Prediction failed.</span>';
       }
     });
   </script>
-
 </body>
 </html>
