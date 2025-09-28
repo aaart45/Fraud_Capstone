@@ -202,10 +202,27 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 # existing TEMPLATES = [...] – add the project-level directory:
 TEMPLATES[0]["DIRS"] = [BASE_DIR / "templates"]
 
-# auth redirects
-LOGIN_URL = "/login/"
-LOGIN_REDIRECT_URL = "/"
-LOGOUT_REDIRECT_URL = "/login/"
+# --- Auth redirects ---
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "home"        # after login or signup
+LOGOUT_REDIRECT_URL = "login"
+
+# --- Templates dir (if not already set) ---
+# Ensure your TEMPLATES['DIRS'] includes a project-level templates folder if you use it.
+# It's OK if you only use app templates (predictor/templates).
+# Example:
+# TEMPLATES[0]["DIRS"] = [BASE_DIR / "templates"]
+
+# --- Security for Render / HTTPS ---
+CSRF_TRUSTED_ORIGINS = [
+    "https://fraud-capstone-web.onrender.com",
+    # add your custom domain here if you have one, e.g. "https://myapp.example.com"
+]
+
+# In production (Render), these should be True:
+# SESSION_COOKIE_SECURE = True
+# CSRF_COOKIE_SECURE = True
+
 
 CACHES = {
     "default": {
