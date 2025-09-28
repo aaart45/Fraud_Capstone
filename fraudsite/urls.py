@@ -1,29 +1,25 @@
+# fraudsite/urls.py
 from django.contrib import admin
 from django.urls import path
 from django.contrib.auth import views as auth_views
-from predictor.views import predict_view, form_view, history_view, signup_view, health_view, docs_view
 from predictor import views as pviews
 
 urlpatterns = [
-     path('docs/', docs_view, name='api-docs'),
-     path('admin/', admin.site.urls),
+    path('admin/', admin.site.urls),
 
     # UI
-    path('', form_view, name='home'),
-    path('history/', history_view, name='history'),
+    path('', pviews.form_view, name='home'),
+    path('history/', pviews.history_view, name='history'),
 
-    # API v1 (new)
-    path('api/v1/predict/', predict_view, name='api-predict'),
+    # Auth
+    path('login/',  auth_views.LoginView.as_view(),  name='login'),
+    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+    path('signup/', pviews.signup_view, name='signup'),
 
-    # (optional) keep old path working for now
-    path('api/v1/health/', health_view, name='api-health'),
+    # API (v1 + legacy)
+    path('api/v1/predict/', pviews.predict_view, name='api-predict'),
+    path('api/v1/health/',  pviews.health_view, name='api-health'),
+
+    # API docs
     path('docs/', pviews.docs_view, name='api-docs'),
-    path('api/predict/', predict_view),
-    path("admin/", admin.site.urls),
-    path("login/",  auth_views.LoginView.as_view(),  name="login"),
-    path("logout/", auth_views.LogoutView.as_view(), name="logout"),
-    path("signup/", signup_view, name="signup"),        # <-- add this
-    path("api/predict", predict_view, name="api-predict"),
-    path("", form_view, name="home"),
-    path("history/", history_view, name="history"),
 ]
