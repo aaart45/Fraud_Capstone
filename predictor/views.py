@@ -76,9 +76,12 @@ def _predict_one(payload: dict):
 
     # anomaly decision
     yp = clf.predict(Xs)
-    if set(np.unique(yp)) == {-1, 1}:
+    
+    # Fix: IsolationForest/Anomaly Detectors return -1 for outliers (Fraud) and 1 for inliers (Normal)
+    if clf.__class__.__name__ == "IsolationForest" or (hasattr(clf, "classes_") and -1 in clf.classes_):
         is_fraud = bool(yp[0] == -1)
     else:
+        # Standard binary classification (1 = Fraud)
         is_fraud = bool(yp[0] == 1)
 
     # anomaly score (normalized to "higher=worse")
